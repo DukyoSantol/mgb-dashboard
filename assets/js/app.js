@@ -44,7 +44,7 @@
     },
   ];
 
-  var SERVICES = loadServices();
+  var SERVICES = [];
 
   function isSafeUrl(value) {
     if (typeof value !== "string") return false;
@@ -84,29 +84,67 @@
   }
 
   function loadServices() {
-    var list;
-    try {
-      var raw = localStorage.getItem("mgb-services");
-      if (raw) {
-        var parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length) list = parsed;
-      }
-    } catch (e) {
-      /* ignore */
-    }
-    if (!list) list = DEFAULT_SERVICES.map(function (s) { return Object.assign({}, s); });
-    list = list.map(sanitizeService).filter(function (s) { return s && !s.admin; });
-    if (!list.length) list = DEFAULT_SERVICES.map(function (s) { return Object.assign({}, s); });
-    try { localStorage.setItem("mgb-services", JSON.stringify(list)); } catch (e) {}
-    return list;
+    return fetch("/api/services")
+      .then(function (res) {
+        if (!res.ok) throw new Error("API error");
+        return res.json();
+      })
+      .then(function (data) {
+        if (Array.isArray(data) && data.length) {
+          return data.map(sanitizeService).filter(function (s) { return s && !s.admin; });
+        }
+        return DEFAULT_SERVICES.map(function (s) { return Object.assign({}, s); });
+      })
+      .catch(function () {
+        // Fallback to localStorage if API fails (e.g., local development)
+        var list;
+        try {
+          var raw = localStorage.getItem("mgb-services");
+          if (raw) {
+            var parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length) list = parsed;
+          }
+        } catch (e) {
+          /* ignore */
+        }
+        if (!list) list = DEFAULT_SERVICES.map(function (s) { return Object.assign({}, s); });
+        list = list.map(sanitizeService).filter(function (s) { return s && !s.admin; });
+        if (!list.length) list = DEFAULT_SERVICES.map(function (s) { return Object.assign({}, s); });
+        try { localStorage.setItem("mgb-services", JSON.stringify(list)); } catch (e) {}
+        return list;
+      });
   }
 
   function saveServices() {
-    try {
-      localStorage.setItem("mgb-services", JSON.stringify(SERVICES));
-    } catch (e) {
-      /* ignore */
-    }
+    var adminPass = getAdminPass();
+    return fetch("/api/services", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + adminPass
+      },
+      body: JSON.stringify(SERVICES)
+    })
+    .then(function (res) {
+      if (!res.ok) throw new Error("API error");
+      return res.json();
+    })
+    .then(function () {
+      // Also save to localStorage as backup
+      try {
+        localStorage.setItem("mgb-services", JSON.stringify(SERVICES));
+      } catch (e) {
+        /* ignore */
+      }
+    })
+    .catch(function () {
+      // Fallback to localStorage if API fails
+      try {
+        localStorage.setItem("mgb-services", JSON.stringify(SERVICES));
+      } catch (e) {
+        /* ignore */
+      }
+    });
   }
 
   /* ------------------------------------------------------------------
@@ -546,9 +584,10 @@
         SERVICES[index] = SERVICES[targetIndex];
         SERVICES[targetIndex] = temp;
 
-        saveServices();
-        render();
-        renderAdminList();
+        saveServices().then(function () {
+          render();
+          renderAdminList();
+        });
       });
     });
 
@@ -581,10 +620,11 @@
         var id = btn.getAttribute("data-del");
         if (!confirm("Delete this system?")) return;
         SERVICES = SERVICES.filter(function (s) { return s.id !== id; });
-        saveServices();
-        render();
-        renderAdminList();
-        resetForm();
+        saveServices().then(function () {
+          render();
+          renderAdminList();
+          resetForm();
+        });
       });
     });
   }
@@ -642,11 +682,12 @@
       SERVICES.push({ id: id, title: title, subtitle: sub, online: online, offline: offline, icon: icon, admin: isAdmin });
     }
 
-    saveServices();
-    render();
-    renderAdminList();
-    resetForm();
-    showMsg("svcMsg", "Saved.", "ok");
+    saveServices().then(function () {
+      render();
+      renderAdminList();
+      resetForm();
+      showMsg("svcMsg", "Saved.", "ok");
+    });
   }
 
   function showMsg(id, text, kind) {
@@ -742,11 +783,8 @@
   /* ------------------------------------------------------------------
    * 9) Init
    * ------------------------------------------------------------------ */
-  render();
   initTheme();
   initPointerEffects();
-  tickClock();
-  setInterval(tickClock, 1000);
   setInterval(checkAll, 60000);
 
   refreshBtn.addEventListener("click", checkAll);
@@ -795,11 +833,12 @@
   document.getElementById("resetDefaults").addEventListener("click", function () {
     if (!confirm("Reset all systems to defaults?")) return;
     SERVICES = DEFAULT_SERVICES.map(function (s) { return Object.assign({}, s); });
-    saveServices();
-    render();
-    renderAdminList();
-    resetForm();
-    showMsg("settingsMsg", "Reset to defaults.", "ok");
+    saveServices().then(function () {
+      render();
+      renderAdminList();
+      resetForm();
+      showMsg("settingsMsg", "Reset to defaults.", "ok");
+    });
   });
 
   window.addEventListener("load", function () {
@@ -807,7 +846,16 @@
     if ("serviceWorker" in navigator && location.protocol !== "file:") {
       navigator.serviceWorker.register("sw.js").catch(function () {});
     }
-    setTimeout(checkAll, 400);
+    // Load services from API, then render
+    loadServices().then(function (loadedServices) {
+      SERVICES = loadedServices;
+      render();
+      initTheme();
+      tickClock();
+      setInterval(tickClock, 1000);
+      setInterval(checkAll, 60000);
+      setTimeout(checkAll, 400);
+    });
   });
   document.addEventListener("visibilitychange", function () {
     if (!document.hidden) checkAll();
