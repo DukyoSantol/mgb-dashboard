@@ -213,12 +213,13 @@
     var safeOnline = escapeHtml(svc.online);
     var hasOnline = isSafeUrl(svc.online);
     var hasOffline = isSafeUrl(svc.offline);
+    var cardClass = "card" + (hasOnline ? "" : " no-online");
     var cardIcon = hasOnline
       ? '<a class="card-icon" href="' + safeOnline + '" target="_blank" rel="noopener noreferrer" title="Open ' + escapeHtml(svc.title) + ' (online)">' +
         '<span class="tile">' + iconMarkup(svc.icon) + '</span>' +
         '<span class="card-meta"><span class="card-title">' + escapeHtml(svc.title) + '</span></span>' +
         '</a>'
-      : '<div class="card-icon card-icon-static">' +
+      : '<div class="card-icon">' +
         '<span class="tile">' + iconMarkup(svc.icon) + '</span>' +
         '<span class="card-meta"><span class="card-title">' + escapeHtml(svc.title) + '</span></span>' +
         '</div>';
@@ -226,7 +227,7 @@
     if (hasOnline) links += linkButton("online", "Online", svc.online, WIFI_ICON);
     if (hasOffline) links += linkButton("offline", "Offline", svc.offline, LOCAL_ICON);
     return (
-      '<article class="card" data-id="' +
+      '<article class="' + cardClass + '" data-id="' +
       safeId +
       '">' +
       cardIcon +

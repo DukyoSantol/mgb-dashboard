@@ -315,9 +315,32 @@ body.pointer-active .cursor-glow { opacity: 1; }
   background: transparent;
   cursor: pointer;
 }
-.card-icon-static {
+.card-icon:not(a) {
   cursor: default;
   pointer-events: none;
+}
+.card.no-online {
+  transform: none !important;
+  box-shadow: var(--shadow) !important;
+  border-color: var(--border) !important;
+}
+.card.no-online:hover {
+  transform: none !important;
+  border-color: var(--border) !important;
+  box-shadow: var(--shadow) !important;
+}
+.card.no-online:hover::before {
+  opacity: 0 !important;
+}
+.card.no-online .card-icon .tile {
+  transform: none !important;
+}
+.card.no-online .card-icon:hover .tile {
+  transform: none !important;
+  box-shadow: 0 14px 30px -14px rgba(56, 189, 248, .9) !important;
+}
+.card.no-online .card-icon:hover .tile::after {
+  opacity: 0 !important;
 }
 
 .tile {
