@@ -46,6 +46,43 @@
 
   var SERVICES = loadServices();
 
+  function isSafeUrl(value) {
+    if (typeof value !== "string") return false;
+    var trimmed = value.trim();
+    if (!trimmed) return false;
+    try {
+      var url = new URL(trimmed);
+      if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+      if (url.username || url.password) return false;
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function sanitizeService(svc) {
+    if (!svc || typeof svc !== "object") return null;
+    var title = typeof svc.title === "string" ? svc.title.trim() : "";
+    if (!title) return null;
+    var online = typeof svc.online === "string" ? svc.online.trim() : "";
+    var offline = typeof svc.offline === "string" ? svc.offline.trim() : "";
+    var isAdmin = !!svc.admin || title.toLowerCase() === "super admin";
+    if (!isAdmin && !isSafeUrl(online)) return null;
+    if (offline && !isSafeUrl(offline)) offline = "";
+    var id = typeof svc.id === "string" && svc.id
+      ? svc.id
+      : title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || ("svc-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8));
+    return {
+      id: id,
+      title: title,
+      subtitle: typeof svc.subtitle === "string" ? svc.subtitle.trim() : "",
+      online: online,
+      offline: offline,
+      icon: typeof svc.icon === "string" ? svc.icon : "",
+      admin: isAdmin
+    };
+  }
+
   function loadServices() {
     var list;
     try {
@@ -58,7 +95,8 @@
       /* ignore */
     }
     if (!list) list = DEFAULT_SERVICES.map(function (s) { return Object.assign({}, s); });
-    list = list.filter(function (s) { return !s.admin; });
+    list = list.map(sanitizeService).filter(function (s) { return s && !s.admin; });
+    if (!list.length) list = DEFAULT_SERVICES.map(function (s) { return Object.assign({}, s); });
     try { localStorage.setItem("mgb-services", JSON.stringify(list)); } catch (e) {}
     return list;
   }
@@ -98,24 +136,25 @@
    * 3) Rendering
    * ------------------------------------------------------------------ */
   function linkButton(kind, label, url, icon) {
+    var safeUrl = escapeHtml(url);
     return (
       '<a class="link-btn ' +
       kind +
       '" href="' +
-      url +
+      safeUrl +
       '" target="_blank" rel="noopener noreferrer" data-link="' +
       kind +
       '" data-url="' +
-      url +
+      safeUrl +
       '">' +
       '<span class="lb-main">' +
       '<span class="lb-ico">' +
       icon +
       '</span>' +
       '<span><span class="lb-name">' +
-      label +
+      escapeHtml(label) +
       '</span><span class="lb-url">' +
-      url +
+      safeUrl +
       '</span></span>' +
       "</span>" +
       '<span class="dot" data-dot="' +
@@ -125,19 +164,34 @@
     );
   }
 
+  function isTrustedIcon(icon) {
+    return Object.keys(ICONS).some(function (key) { return ICONS[key] === icon; });
+  }
+
   function iconMarkup(icon) {
     if (!icon) return "";
-    if (/^data:image\//.test(icon) || /\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(icon)) {
-      return '<img src="' + icon + '" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:12px;" />';
+    if (isTrustedIcon(icon)) return icon;
+
+    var src = "";
+    if (/^data:image\/(?:png|jpe?g|gif|webp|svg\+xml)(?:;|,)/i.test(icon)) {
+      src = icon;
+    } else if (/^https?:\/\//i.test(icon) || /^\.?\/?assets\//i.test(icon) || /\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(icon)) {
+      src = icon;
+    } else if (/^\s*<svg[\s>]/i.test(icon)) {
+      src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(icon);
+    } else {
+      return "";
     }
-    return icon;
+
+    return '<img src="' + escapeHtml(src) + '" alt="" loading="lazy" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:contain;border-radius:12px;" />';
   }
 
   function cardTemplate(svc) {
+    var safeId = escapeHtml(svc.id);
     if (svc.admin) {
       return (
         '<article class="card" data-id="' +
-        svc.id +
+        safeId +
         '">' +
         '<button class="card-icon admin-open" type="button" title="Open ' +
         escapeHtml(svc.title) +
@@ -156,12 +210,13 @@
         "</article>"
       );
     }
+    var safeOnline = escapeHtml(svc.online);
     return (
       '<article class="card" data-id="' +
-      svc.id +
+      safeId +
       '">' +
       '<a class="card-icon" href="' +
-      svc.online +
+      safeOnline +
       '" target="_blank" rel="noopener noreferrer" title="Open ' +
       escapeHtml(svc.title) +
       ' (online)">' +
@@ -176,7 +231,7 @@
       "</a>" +
       '<div class="links">' +
       linkButton("online", "Online", svc.online, WIFI_ICON) +
-      linkButton("offline", "Offline", svc.offline, LOCAL_ICON) +
+      (isSafeUrl(svc.offline) ? linkButton("offline", "Offline", svc.offline, LOCAL_ICON) : "") +
       "</div>" +
       (svc.subtitle ? '<div class="card-sub">' + escapeHtml(svc.subtitle) + '</div>' : '') +
       "</article>"
@@ -292,18 +347,31 @@
 
     var checks = [];
     var urls = [];
+    var cardById = {};
+    grid.querySelectorAll(".card").forEach(function (card) {
+      cardById[card.getAttribute("data-id")] = card;
+    });
 
     SERVICES.forEach(function (svc) {
       if (svc.admin) return;
-      var scope = grid.querySelector('.card[data-id="' + svc.id + '"]');
+      var scope = cardById[svc.id];
       if (!scope) return;
-      setDot(scope, "online", "busy");
-      setDot(scope, "offline", "busy");
 
-      checks.push({ scope: scope, kind: "online", url: svc.online });
-      checks.push({ scope: scope, kind: "offline", url: svc.offline });
-      if (svc.online) urls.push(svc.online);
-      if (svc.offline) urls.push(svc.offline);
+      if (isSafeUrl(svc.online)) {
+        setDot(scope, "online", "busy");
+        checks.push({ scope: scope, kind: "online", url: svc.online });
+        urls.push(svc.online);
+      } else {
+        setDot(scope, "online", "down");
+      }
+
+      if (isSafeUrl(svc.offline)) {
+        setDot(scope, "offline", "busy");
+        checks.push({ scope: scope, kind: "offline", url: svc.offline });
+        urls.push(svc.offline);
+      } else {
+        setDot(scope, "offline", "down");
+      }
     });
 
     urls = urls.filter(function (url, index) {
@@ -388,6 +456,24 @@
     }
   }
 
+  var ADMIN_IDLE_MS = 5 * 60 * 1000;
+  var adminIdleTimer = null;
+
+  function clearAdminIdle() {
+    if (adminIdleTimer) {
+      clearTimeout(adminIdleTimer);
+      adminIdleTimer = null;
+    }
+  }
+
+  function resetAdminIdle() {
+    if (adminModal.hidden) return;
+    clearAdminIdle();
+    adminIdleTimer = setTimeout(function () {
+      closeAdmin();
+    }, ADMIN_IDLE_MS);
+  }
+
   function openAdmin() {
     adminModal.hidden = false;
     adminLogin.hidden = false;
@@ -395,9 +481,11 @@
     adminPass.value = "";
     adminLoginMsg.textContent = "";
     adminPass.focus();
+    resetAdminIdle();
   }
 
   function closeAdmin() {
+    clearAdminIdle();
     adminModal.hidden = true;
   }
 
@@ -407,9 +495,11 @@
       adminPanel.hidden = false;
       renderAdminList();
       resetForm();
+      resetAdminIdle();
     } else {
       adminLoginMsg.textContent = "Wrong password.";
       adminLoginMsg.className = "admin-msg bad";
+      resetAdminIdle();
     }
   }
 
@@ -496,6 +586,22 @@
     var isAdmin = title.toLowerCase() === "super admin";
     if (!isAdmin && !online) {
       showMsg("svcMsg", "Online URL is required.", "bad");
+      return;
+    }
+    if (online && !isSafeUrl(online)) {
+      showMsg("svcMsg", "Online URL must be a valid http:// or https:// address.", "bad");
+      return;
+    }
+    if (offline && !isSafeUrl(offline)) {
+      showMsg("svcMsg", "Offline URL must be a valid http:// or https:// address.", "bad");
+      return;
+    }
+    if (title.length > 120 || sub.length > 200 || online.length > 2048 || offline.length > 2048) {
+      showMsg("svcMsg", "One or more fields are too long.", "bad");
+      return;
+    }
+    if (preset === "custom" && custom.length > 300000) {
+      showMsg("svcMsg", "Icon is too large (maximum 300 KB).", "bad");
       return;
     }
 
@@ -633,6 +739,12 @@
   adminModal.querySelector(".modal-backdrop").addEventListener("click", closeAdmin);
   adminUnlock.addEventListener("click", unlock);
   adminPass.addEventListener("keydown", function (e) { if (e.key === "Enter") unlock(); });
+
+  adminModal.addEventListener("pointermove", resetAdminIdle, { passive: true });
+  adminModal.addEventListener("pointerdown", resetAdminIdle, { passive: true });
+  adminModal.addEventListener("keydown", resetAdminIdle);
+  adminModal.addEventListener("input", resetAdminIdle);
+  adminModal.addEventListener("click", resetAdminIdle);
 
   document.getElementById("svcIconPreset").addEventListener("change", function () {
     document.getElementById("svcIconCustom").hidden = this.value !== "custom";
