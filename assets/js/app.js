@@ -198,7 +198,10 @@
   /* ------------------------------------------------------------------
    * 4) Status detection
    * ------------------------------------------------------------------ */
-  function probe(url, timeoutMs) {
+  var STATUS_API = "api/check-status";
+  var PROBE_TIMEOUT = 5000;
+
+  function probeDirect(url, timeoutMs) {
     return new Promise(function (resolve) {
       var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
       var timer = setTimeout(function () {
@@ -223,6 +226,51 @@
     });
   }
 
+  function probeAll(urls) {
+    if (!urls.length) return Promise.resolve({});
+
+    return fetch(STATUS_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify({ urls: urls })
+    })
+      .then(function (response) {
+        if (!response.ok) throw new Error("Status API returned " + response.status);
+        return response.json();
+      })
+      .then(function (data) {
+        var map = {};
+        (data && data.results ? data.results : []).forEach(function (item) {
+          if (item && typeof item.url === "string") {
+            map[item.url] = !!item.reachable;
+          }
+        });
+        return map;
+      });
+  }
+
+  function probeFallback(urls) {
+    var map = {};
+    return Promise.all(
+      urls.map(function (url) {
+        return probeDirect(url, PROBE_TIMEOUT).then(function (up) {
+          map[url] = up;
+        });
+      })
+    ).then(function () {
+      return map;
+    });
+  }
+
+  // Ask the serverless function first; fall back to direct probes when the
+  // API is unavailable (e.g. opening from file:// or a plain static server).
+  function probe(urls) {
+    return probeAll(urls).catch(function () {
+      return probeFallback(urls);
+    });
+  }
+
   function setDot(scope, kind, state) {
     var dot = scope.querySelector('[data-dot="' + kind + '"]');
     if (!dot) return;
@@ -244,8 +292,10 @@
     refreshBtn.classList.add("spinning");
     statusLine.textContent = "Checking link status...";
 
-    var jobs = [];
     var results = { up: 0, down: 0, total: 0 };
+    var checks = [];
+    var urls = [];
+
     SERVICES.forEach(function (svc) {
       if (svc.admin) return;
       var scope = grid.querySelector('.card[data-id="' + svc.id + '"]');
@@ -253,36 +303,41 @@
       setDot(scope, "online", "busy");
       setDot(scope, "offline", "busy");
 
-      jobs.push(
-        probe(svc.online, 5000).then(function (up) {
-          setDot(scope, "online", up ? "up" : "down");
-          results.total++;
-          if (up) results.up++; else results.down++;
-          return up;
-        })
-      );
-      jobs.push(
-        probe(svc.offline, 5000).then(function (up) {
-          setDot(scope, "offline", up ? "up" : "down");
-          results.total++;
-          if (up) results.up++; else results.down++;
-          return up;
-        })
-      );
+      checks.push({ scope: scope, kind: "online", url: svc.online });
+      checks.push({ scope: scope, kind: "offline", url: svc.offline });
+      if (svc.online) urls.push(svc.online);
+      if (svc.offline) urls.push(svc.offline);
     });
 
-    Promise.all(jobs).then(function () {
-      isChecking = false;
-      refreshBtn.classList.remove("spinning");
-      var now = new Date();
-      var timeStr = now.toLocaleTimeString();
-      var summary = results.total
-        ? results.up + "/" + results.total + " reachable"
-        : "no links checked";
-      statusLine.innerHTML =
-        '<span class="status-time">' + escapeHtml(timeStr) + "</span>" +
-        " - " + summary + " - green = reachable, red = unreachable.";
+    urls = urls.filter(function (url, index) {
+      return url && urls.indexOf(url) === index;
     });
+
+    probe(urls)
+      .then(function (map) {
+        checks.forEach(function (check) {
+          var up = !!map[check.url];
+          setDot(check.scope, check.kind, up ? "up" : "down");
+          results.total++;
+          if (up) results.up++; else results.down++;
+        });
+
+        isChecking = false;
+        refreshBtn.classList.remove("spinning");
+        var now = new Date();
+        var timeStr = now.toLocaleTimeString();
+        var summary = results.total
+          ? results.up + "/" + results.total + " reachable"
+          : "no links checked";
+        statusLine.innerHTML =
+          '<span class="status-time">' + escapeHtml(timeStr) + "</span>" +
+          " - " + summary + " - green = reachable, red = unreachable.";
+      })
+      .catch(function () {
+        isChecking = false;
+        refreshBtn.classList.remove("spinning");
+        statusLine.textContent = "Could not check link status.";
+      });
   }
 
   function escapeHtml(s) {

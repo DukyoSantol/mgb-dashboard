@@ -15,6 +15,7 @@ with their **Online** and **Offline** addresses.
 | [`index.html`](index.html) | Page structure plus manifest, favicon and iOS web-app meta tags |
 | [`assets/css/style.css`](assets/css/style.css) | Dashboard styling |
 | [`assets/js/app.js`](assets/js/app.js) | Dashboard logic and service-worker registration |
+| [`api/check-status.js`](api/check-status.js) | Serverless status checker used by the deployed dashboard |
 
 ## Install as an app (PWA)
 
@@ -72,13 +73,20 @@ var SERVICES = [
 
 Change the URLs, save, and refresh the browser — no other file needs editing.
 
-## Notes on the status dots
+## Status checks
 
-* The Offline addresses (`starrs`, `dats-server`) are internal host names. They only
-  resolve from inside the company network, so the dot may show red when the dashboard
-  is opened from outside — the link itself still works from a machine on the LAN.
-* Detection is best-effort (CORS/`no-cors` probe with a 5 second timeout); the dots are
-  an indicator only, the buttons always open the exact URLs you configured.
+The dashboard sends the configured URLs to the serverless function at
+[`api/check-status.js`](api/check-status.js) via `POST { "urls": [...] }`. The function
+probes every URL in parallel with a 5-second timeout and returns
+`{ results: [{ url, reachable, status }] }`. Because the request runs on the server,
+browser CORS and mixed-content restrictions do not apply. If the API is unavailable
+(for example when opening `index.html` from `file://`), `app.js` falls back to the
+original browser-side probe.
+
+> Vercel's servers are outside the company network. Public URLs such as
+> `http://202.137.120.23/...` can be checked, but internal-only hostnames such as
+> `starrs` and `dats-server` will normally show red on the deployed site. To monitor
+> those, expose a reachable status endpoint or run the dashboard inside the LAN/VPN.
 
 ## Serving it as a real site (optional)
 
