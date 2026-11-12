@@ -1,11 +1,16 @@
 // Vercel API route for managing services
-// Uses Vercel KV (Redis) for persistent storage across devices
+// Uses Upstash Redis for persistent storage across devices
 
-import { kv } from '@vercel/kv';
+import { Redis } from '@upstash/redis';
 
 // Simple password check (use environment variable in production)
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin';
-const KV_KEY = 'mgb-dashboard:services';
+
+// Initialize Upstash Redis
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL || '',
+  token: process.env.UPSTASH_REDIS_REST_TOKEN || '',
+});
 
 export default async function handler(req, res) {
   // CORS headers
@@ -19,7 +24,7 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     try {
-      const services = await kv.get(KV_KEY);
+      const services = await redis.get('mgb-dashboard:services');
       if (services) {
         res.status(200).json(services);
       } else {
@@ -45,7 +50,7 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Invalid services data' });
       }
 
-      await kv.set(KV_KEY, services);
+      await redis.set('mgb-dashboard:services', services);
       res.status(200).json({ success: true });
     } catch (error) {
       console.error('Error writing services:', error);
