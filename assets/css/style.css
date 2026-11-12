@@ -520,6 +520,7 @@ body.pointer-active .cursor-glow { opacity: 1; }
 .admin-item .ai-sub { font-size: 11.5px; color: var(--text-dim); }
 .admin-item .ai-actions { display: flex; gap: 6px; }
 .admin-item button { min-height: 32px; padding: 4px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); cursor: pointer; font-size: 12px; }
+.admin-item button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 @media (prefers-reduced-motion: reduce) {
   .cursor-glow { display: none; }

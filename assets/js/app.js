@@ -518,17 +518,39 @@
 
   function renderAdminList() {
     var list = document.getElementById("svcList");
-    list.innerHTML = SERVICES.map(function (svc) {
+    list.innerHTML = SERVICES.map(function (svc, i) {
       return (
         '<div class="admin-item" data-id="' + escapeHtml(svc.id) + '">' +
         '<div><div class="ai-title">' + escapeHtml(svc.title) + '</div>' +
         '<div class="ai-sub">' + escapeHtml(svc.subtitle || svc.online || "") + '</div></div>' +
         '<div class="ai-actions">' +
+        '<button type="button" data-move="up" data-id="' + escapeHtml(svc.id) + '" ' + (i === 0 ? 'disabled' : '') + ' title="Move Up">↑</button>' +
+        '<button type="button" data-move="down" data-id="' + escapeHtml(svc.id) + '" ' + (i === SERVICES.length - 1 ? 'disabled' : '') + ' title="Move Down">↓</button>' +
         '<button type="button" data-edit="' + escapeHtml(svc.id) + '">Edit</button>' +
         '<button type="button" data-del="' + escapeHtml(svc.id) + '">Delete</button>' +
         '</div></div>'
       );
     }).join("");
+
+    list.querySelectorAll("[data-move]").forEach(function (btn) {
+      if (btn.disabled) return;
+      btn.addEventListener("click", function () {
+        var id = btn.getAttribute("data-id");
+        var dir = btn.getAttribute("data-move");
+        var index = SERVICES.findIndex(function (s) { return s.id === id; });
+        if (index === -1) return;
+        var targetIndex = dir === "up" ? index - 1 : index + 1;
+        if (targetIndex < 0 || targetIndex >= SERVICES.length) return;
+
+        var temp = SERVICES[index];
+        SERVICES[index] = SERVICES[targetIndex];
+        SERVICES[targetIndex] = temp;
+
+        saveServices();
+        render();
+        renderAdminList();
+      });
+    });
 
     list.querySelectorAll("[data-edit]").forEach(function (btn) {
       btn.addEventListener("click", function () {

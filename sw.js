@@ -1,6 +1,6 @@
 /* MGB Dashboard - service worker (offline app shell) */
 const CACHE_PREFIX = 'mgb-dash-';
-const CACHE_NAME = CACHE_PREFIX + 'v6';
+const CACHE_NAME = CACHE_PREFIX + 'v7';
 const APP_SHELL = [
   './index.html',
   './assets/css/style.css',
