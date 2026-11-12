@@ -211,28 +211,26 @@
       );
     }
     var safeOnline = escapeHtml(svc.online);
+    var hasOnline = isSafeUrl(svc.online);
+    var hasOffline = isSafeUrl(svc.offline);
+    var cardIcon = hasOnline
+      ? '<a class="card-icon" href="' + safeOnline + '" target="_blank" rel="noopener noreferrer" title="Open ' + escapeHtml(svc.title) + ' (online)">' +
+        '<span class="tile">' + iconMarkup(svc.icon) + '</span>' +
+        '<span class="card-meta"><span class="card-title">' + escapeHtml(svc.title) + '</span></span>' +
+        '</a>'
+      : '<button class="card-icon" type="button" title="' + escapeHtml(svc.title) + '">' +
+        '<span class="tile">' + iconMarkup(svc.icon) + '</span>' +
+        '<span class="card-meta"><span class="card-title">' + escapeHtml(svc.title) + '</span></span>' +
+        '</button>';
+    var links = '';
+    if (hasOnline) links += linkButton("online", "Online", svc.online, WIFI_ICON);
+    if (hasOffline) links += linkButton("offline", "Offline", svc.offline, LOCAL_ICON);
     return (
       '<article class="card" data-id="' +
       safeId +
       '">' +
-      '<a class="card-icon" href="' +
-      safeOnline +
-      '" target="_blank" rel="noopener noreferrer" title="Open ' +
-      escapeHtml(svc.title) +
-      ' (online)">' +
-      '<span class="tile">' +
-      iconMarkup(svc.icon) +
-      "</span>" +
-      '<span class="card-meta">' +
-      '<span class="card-title">' +
-      escapeHtml(svc.title) +
-      "</span>" +
-      "</span>" +
-      "</a>" +
-      '<div class="links">' +
-      linkButton("online", "Online", svc.online, WIFI_ICON) +
-      (isSafeUrl(svc.offline) ? linkButton("offline", "Offline", svc.offline, LOCAL_ICON) : "") +
-      "</div>" +
+      cardIcon +
+      (links ? '<div class="links">' + links + '</div>' : '') +
       (svc.subtitle ? '<div class="card-sub">' + escapeHtml(svc.subtitle) + '</div>' : '') +
       "</article>"
     );
