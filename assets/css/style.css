@@ -310,6 +310,14 @@ body.pointer-active .cursor-glow { opacity: 1; }
   color: inherit;
   border-radius: 16px;
   outline-offset: 4px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+.card-icon:not(a) {
+  cursor: default;
+  pointer-events: none;
 }
 
 .tile {
