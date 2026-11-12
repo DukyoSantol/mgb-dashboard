@@ -84,68 +84,94 @@
   }
 
   function loadServices() {
-    return fetch("/api/services")
-      .then(function (res) {
-        if (!res.ok) throw new Error("API error");
-        return res.json();
-      })
-      .then(function (data) {
-        if (Array.isArray(data) && data.length) {
-          return data.map(sanitizeService).filter(function (s) { return s && !s.admin; });
-        }
-        return DEFAULT_SERVICES.map(function (s) { return Object.assign({}, s); });
-      })
-      .catch(function () {
-        // Fallback to localStorage if API fails (e.g., local development)
-        var list;
-        try {
-          var raw = localStorage.getItem("mgb-services");
-          if (raw) {
-            var parsed = JSON.parse(raw);
-            if (Array.isArray(parsed) && parsed.length) list = parsed;
-          }
-        } catch (e) {
-          /* ignore */
-        }
-        if (!list) list = DEFAULT_SERVICES.map(function (s) { return Object.assign({}, s); });
-        list = list.map(sanitizeService).filter(function (s) { return s && !s.admin; });
-        if (!list.length) list = DEFAULT_SERVICES.map(function (s) { return Object.assign({}, s); });
-        try { localStorage.setItem("mgb-services", JSON.stringify(list)); } catch (e) {}
-        return list;
-      });
-  }
-
-  function saveServices() {
-    var adminPass = getAdminPass();
-    return fetch("/api/services", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + adminPass
-      },
-      body: JSON.stringify(SERVICES)
-    })
+  return fetch('/api/services', {
+    method: 'GET',
+    cache: 'no-store'
+  })
     .then(function (res) {
-      if (!res.ok) throw new Error("API error");
+      if (!res.ok) {
+        throw new Error('Database API failed: HTTP ' + res.status);
+      }
+
       return res.json();
     })
-    .then(function () {
-      // Also save to localStorage as backup
-      try {
-        localStorage.setItem("mgb-services", JSON.stringify(SERVICES));
-      } catch (e) {
-        /* ignore */
+    .then(function (data) {
+      if (!Array.isArray(data)) {
+        throw new Error('Invalid database response');
       }
+
+      if (data.length === 0) {
+        return DEFAULT_SERVICES.map(function (s) {
+          return Object.assign({}, s);
+        });
+      }
+
+      return data.map(sanitizeService).filter(function (s) {
+        return s && !s.admin;
+      });
     })
-    .catch(function () {
-      // Fallback to localStorage if API fails
-      try {
-        localStorage.setItem("mgb-services", JSON.stringify(SERVICES));
-      } catch (e) {
-        /* ignore */
-      }
+    .catch(function (error) {
+      console.error('Could not load services from database:', error);
+
+      alert(
+        'Could not load dashboard data from the database. ' +
+        'Please check your internet connection or contact the administrator.'
+      );
+
+      // Do not silently load browser-specific saved data.
+      return DEFAULT_SERVICES.map(function (s) {
+        return Object.assign({}, s);
+      });
     });
-  }
+}
+
+  function saveServices() {
+  var adminPass = getAdminPass();
+
+  return fetch('/api/services', {
+    method: 'POST',
+    cache: 'no-store',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + adminPass
+    },
+    body: JSON.stringify(SERVICES)
+  })
+    .then(function (res) {
+      if (!res.ok) {
+        throw new Error('Database save failed: HTTP ' + res.status);
+      }
+
+      return res.json();
+    })
+    .then(function (data) {
+      if (!data.success) {
+        throw new Error('Database did not confirm the save');
+      }
+
+      // Local storage is only a backup, not the source of truth.
+      try {
+        localStorage.setItem(
+          'mgb-services',
+          JSON.stringify(SERVICES)
+        );
+      } catch (e) {
+        console.warn('Local backup unavailable:', e);
+      }
+
+      return true;
+    })
+    .catch(function (error) {
+      console.error('Could not save services:', error);
+
+      alert(
+        'SAVE FAILED! Your changes were not confirmed in the database. ' +
+        'Please check your connection and admin credentials.'
+      );
+
+      throw error;
+    });
+}
 
   /* ------------------------------------------------------------------
    * 2) DOM refs
