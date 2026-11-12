@@ -1,0 +1,8 @@
+{
+  "name": "mgb-dashboard",
+  "version": "1.0.0",
+  "description": "MGB Dashboard",
+  "dependencies": {
+    "@vercel/kv": "^1.0.1"
+  }
+}
