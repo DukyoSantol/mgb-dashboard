@@ -75,7 +75,6 @@
    * 2) DOM refs
    * ------------------------------------------------------------------ */
   var grid = document.getElementById("grid");
-  var statusLine = document.getElementById("statusLine");
   var clockEl = document.getElementById("clock");
   var refreshBtn = document.getElementById("refreshBtn");
   var themeBtn = document.getElementById("themeBtn");
@@ -290,9 +289,7 @@
     if (isChecking) return;
     isChecking = true;
     refreshBtn.classList.add("spinning");
-    statusLine.textContent = "Checking link status...";
 
-    var results = { up: 0, down: 0, total: 0 };
     var checks = [];
     var urls = [];
 
@@ -318,25 +315,14 @@
         checks.forEach(function (check) {
           var up = !!map[check.url];
           setDot(check.scope, check.kind, up ? "up" : "down");
-          results.total++;
-          if (up) results.up++; else results.down++;
         });
 
         isChecking = false;
         refreshBtn.classList.remove("spinning");
-        var now = new Date();
-        var timeStr = now.toLocaleTimeString();
-        var summary = results.total
-          ? results.up + "/" + results.total + " reachable"
-          : "no links checked";
-        statusLine.innerHTML =
-          '<span class="status-time">' + escapeHtml(timeStr) + "</span>" +
-          " - " + summary + " - green = reachable, red = unreachable.";
       })
       .catch(function () {
         isChecking = false;
         refreshBtn.classList.remove("spinning");
-        statusLine.textContent = "Could not check link status.";
       });
   }
 
