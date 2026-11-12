@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="MGB Dashboard">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="1" stop-color="#0b1120"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="43%" r="45%">
+      <stop offset="0" stop-color="#38bdf8" stop-opacity=".30"/>
+      <stop offset="1" stop-color="#38bdf8" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="mark" x1="120" y1="150" x2="392" y2="380" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#38bdf8"/>
+      <stop offset="1" stop-color="#818cf8"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <circle cx="256" cy="220" r="230" fill="url(#glow)"/>
+  <polygon points="120,380 120,150 180,150 256,270 332,150 392,150 392,380 332,380 332,250 256,370 180,250 180,380" fill="url(#mark)" stroke="#e0f2fe" stroke-opacity=".35" stroke-width="6" stroke-linejoin="round"/>
+</svg>

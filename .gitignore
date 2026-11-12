@@ -1,0 +1,9 @@
+# Logs and OS/editor junk
+*.log
+Thumbs.db
+.DS_Store
+.vscode/
+.idea/
+
+# Vercel
+.vercel/
