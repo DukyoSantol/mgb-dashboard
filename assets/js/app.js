@@ -530,10 +530,94 @@
   }
 
   /* ------------------------------------------------------------------
-   * 8) Init
+   * 8) Pointer effects
+   * ------------------------------------------------------------------ */
+  var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var cursorGlow = document.querySelector(".cursor-glow");
+  var pointerX = 0;
+  var pointerY = 0;
+
+  function updateCursorGlow() {
+    if (!cursorGlow) return;
+    var size = 520;
+    cursorGlow.style.transform =
+      "translate3d(" + (pointerX - size / 2) + "px," + (pointerY - size / 2) + "px,0)";
+  }
+
+  function resetCardTilt(card) {
+    card.style.setProperty("--rx", "0deg");
+    card.style.setProperty("--ry", "0deg");
+    card.style.setProperty("--mx", "50%");
+    card.style.setProperty("--my", "50%");
+  }
+
+  function initPointerEffects() {
+    if (reduceMotion) return;
+
+    if (cursorGlow) {
+      document.addEventListener("pointermove", function (e) {
+        if (e.pointerType === "touch") return;
+        pointerX = e.clientX;
+        pointerY = e.clientY;
+        if (!document.body.classList.contains("pointer-active")) {
+          document.body.classList.add("pointer-active");
+        }
+        updateCursorGlow();
+      }, { passive: true });
+
+      document.documentElement.addEventListener("pointerleave", function () {
+        document.body.classList.remove("pointer-active");
+      });
+      window.addEventListener("blur", function () {
+        document.body.classList.remove("pointer-active");
+      });
+    }
+
+    grid.addEventListener("pointermove", function (e) {
+      if (e.pointerType === "touch") return;
+      var card = e.target && e.target.closest ? e.target.closest(".card") : null;
+      if (!card) return;
+      var rect = card.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      var x = (e.clientX - rect.left) / rect.width;
+      var y = (e.clientY - rect.top) / rect.height;
+      var rx = (0.5 - y) * 7;
+      var ry = (x - 0.5) * 7;
+      card.style.setProperty("--rx", rx.toFixed(2) + "deg");
+      card.style.setProperty("--ry", ry.toFixed(2) + "deg");
+      card.style.setProperty("--mx", (x * 100).toFixed(1) + "%");
+      card.style.setProperty("--my", (y * 100).toFixed(1) + "%");
+    }, { passive: true });
+
+    grid.addEventListener("pointerout", function (e) {
+      var card = e.target && e.target.closest ? e.target.closest(".card") : null;
+      if (!card) return;
+      if (e.relatedTarget && card.contains(e.relatedTarget)) return;
+      resetCardTilt(card);
+    }, { passive: true });
+
+    document.addEventListener("click", function (e) {
+      var target = e.target && e.target.closest ? e.target.closest(".link-btn, .icon-btn, .admin-btn") : null;
+      if (!target || target.disabled) return;
+      var rect = target.getBoundingClientRect();
+      var size = Math.max(rect.width, rect.height) * 1.6;
+      var ripple = document.createElement("span");
+      ripple.className = "ripple";
+      ripple.style.width = size + "px";
+      ripple.style.height = size + "px";
+      ripple.style.left = (e.clientX - rect.left - size / 2) + "px";
+      ripple.style.top = (e.clientY - rect.top - size / 2) + "px";
+      target.appendChild(ripple);
+      window.setTimeout(function () { ripple.remove(); }, 650);
+    });
+  }
+
+  /* ------------------------------------------------------------------
+   * 9) Init
    * ------------------------------------------------------------------ */
   render();
   initTheme();
+  initPointerEffects();
   tickClock();
   setInterval(tickClock, 1000);
   setInterval(checkAll, 60000);
