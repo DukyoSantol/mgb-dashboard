@@ -315,7 +315,7 @@ body.pointer-active .cursor-glow { opacity: 1; }
   background: transparent;
   cursor: pointer;
 }
-.card-icon:not(a) {
+.card-icon-static {
   cursor: default;
   pointer-events: none;
 }

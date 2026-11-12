@@ -218,10 +218,10 @@
         '<span class="tile">' + iconMarkup(svc.icon) + '</span>' +
         '<span class="card-meta"><span class="card-title">' + escapeHtml(svc.title) + '</span></span>' +
         '</a>'
-      : '<button class="card-icon" type="button" title="' + escapeHtml(svc.title) + '">' +
+      : '<div class="card-icon card-icon-static">' +
         '<span class="tile">' + iconMarkup(svc.icon) + '</span>' +
         '<span class="card-meta"><span class="card-title">' + escapeHtml(svc.title) + '</span></span>' +
-        '</button>';
+        '</div>';
     var links = '';
     if (hasOnline) links += linkButton("online", "Online", svc.online, WIFI_ICON);
     if (hasOffline) links += linkButton("offline", "Offline", svc.offline, LOCAL_ICON);
